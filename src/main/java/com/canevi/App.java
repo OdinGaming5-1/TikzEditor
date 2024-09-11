@@ -9,7 +9,7 @@ public class App {
 
     public App() {
         buttonOk.addActionListener((ActionEvent e) -> {
-
+            JOptionPane.showMessageDialog(null, "Hello World");
         });
     }
 }
