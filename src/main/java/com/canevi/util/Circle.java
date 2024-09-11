@@ -8,8 +8,8 @@ public class Circle implements Exportable
     private Coordinate coordinate;
 
     public Circle(){
-        this.coordinate=new Coordinate(1,0);
-        this.radius=new Radius(1);
+        this.coordinate=new Coordinate(0,0);
+        this.radius=new Radius(0);
     }
     public Circle(Coordinate c,Radius r){
         this.coordinate=c;
