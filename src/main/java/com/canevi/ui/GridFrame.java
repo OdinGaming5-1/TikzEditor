@@ -27,6 +27,8 @@ public class GridFrame extends JFrame {
         private int lastX, lastY; // for tracking mouse drag
         private boolean isDragging = false;
 
+        private final int gridSize = 50;
+
         public GridPanel() {
             addMouseWheelListener(new MouseWheelListener() {
                 @Override
@@ -46,6 +48,7 @@ public class GridFrame extends JFrame {
                     lastX = e.getX();
                     lastY = e.getY();
                     isDragging = true;
+                    repaint();
                 }
 
                 @Override
@@ -78,15 +81,38 @@ public class GridFrame extends JFrame {
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             // Apply scaling and panning
-            g2d.translate(offsetX, offsetY);
+            //g2d.translate(offsetX, offsetY);
             g2d.scale(scale, scale);
 
             // Draw the endless grid
             drawGrid(g2d);
+            drawDrawCircleOnClick(g2d);
+        }
+
+        private int getPosition(int last, int offset, int radius) {
+            double division = (double) (last) / gridSize;
+            double floor = Math.floor(division);
+            double ceil = Math.ceil(division);
+            division = Math.abs(division - floor) > Math.abs(division - ceil) ? ceil : floor;
+            int modded = (int) (division * gridSize);
+            int translated = modded + (offset % (2 * radius)) - radius;
+            return (int) (translated * scale);
+        }
+
+        private void drawDrawCircleOnClick(Graphics2D g2d) {
+            g2d.setColor(Color.red);
+            int radius = 25;
+            int positionX = getPosition(lastX, offsetX, radius);
+            int positionY = getPosition(lastY, offsetY, radius);
+
+            g2d.drawOval(positionX, positionY, 2*radius, 2*radius);
+            g2d.drawString("Last:       x: " + lastX + " y: " + lastY, 20, 30);
+            g2d.drawString("Offset:     x: " + offsetX + " y: " + offsetY, 20, 60);
+            g2d.drawString("Position:   x: " + positionX + " y: " + positionY, 20, 90);
         }
 
         private void drawGrid(Graphics2D g2d) {
-            int gridSize = 50; // size of each grid cell
+            // size of each grid cell
 
             // Set grid color
             g2d.setColor(Color.LIGHT_GRAY);
@@ -95,13 +121,11 @@ public class GridFrame extends JFrame {
             int width = getWidth();
             int height = getHeight();
 
-            int scale = 20;
-
             // Calculate starting points to make the grid appear
-            int startX = 0;
-            int endX = gridSize * scale;
-            int startY = 0;
-            int endY = gridSize * scale;
+            int startX = offsetX;
+            int endX = gridSize * (width % gridSize + 1);
+            int startY = offsetY;
+            int endY = gridSize * (height % gridSize + 1);
 
             // Draw vertical lines (endless in X direction)
             for (int i = startX; i < endX + gridSize; i += gridSize) {
