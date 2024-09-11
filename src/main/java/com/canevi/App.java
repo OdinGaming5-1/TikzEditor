@@ -8,8 +8,6 @@ public class App {
     private JButton buttonOk;
 
     public App() {
-        buttonOk.addActionListener((ActionEvent e) -> {
-            JOptionPane.showMessageDialog(null, "Hello World");
-        });
+
     }
 }
