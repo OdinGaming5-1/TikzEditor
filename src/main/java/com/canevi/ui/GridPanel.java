@@ -58,8 +58,10 @@ public class GridPanel extends JPanel {
                 }
                 else if(editmode==EditMode.CIRCLE)
                 {
-                    circle=new Circle(new Coordinate(e.getX()-20,e.getY()-20),new Radius(20));
-                    repaint();
+                    if (SwingUtilities.isLeftMouseButton(e)) {
+                        circle = new Circle(new Coordinate(e.getX() - 20, e.getY() - 20), new Radius(20));
+                        repaint();
+                    }
                 }
 
                 if (SwingUtilities.isRightMouseButton(e)) {
