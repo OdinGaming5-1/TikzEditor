@@ -3,6 +3,7 @@ package com.canevi.ui;
 import com.canevi.drawer.CircleDrawer;
 import com.canevi.drawer.Drawable;
 import com.canevi.drawer.GridDrawer;
+import com.canevi.export.Exportable;
 import com.canevi.util.Circle;
 import com.canevi.util.Coordinate;
 import com.canevi.util.Radius;
@@ -11,90 +12,35 @@ import com.canevi.util.Size;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
 public class GridPanel extends JPanel {
     private double scale = 1.0; // scale for zooming
     private double offsetX = 0, offsetY = 0; // offsets for panning
-    private double lastX, lastY; // for tracking mouse drag
-    private boolean isDragging = false;
 
-    private final int gridSize = 50;
-    private final Map<String, Drawable> drawableMap = new HashMap<>();
+    private final MouseHandler mouseHandler;
 
-    private EditMode editmode;
+    private final GridDrawer gridDrawer;
+    private final CircleDrawer circleDrawer;
+
+    private final java.util.List<Circle> circles = new ArrayList<>();
+    private final java.util.Map<Drawable<?>, java.util.List<Exportable>> toBeInstantiated = new HashMap<>();
+
+    private EditMode editMode;
 
     public GridPanel() {
-        editmode=EditMode.HAND;
+        editMode =EditMode.HAND;
 
-        GridDrawer gridDrawer = new GridDrawer(gridSize);
-        drawableMap.put(GridDrawer.getName(), gridDrawer);
+        int gridSize = 50;
+        gridDrawer = new GridDrawer(gridSize);
+        circleDrawer = new CircleDrawer(gridSize);
 
-        addMouseWheelListener(new MouseWheelListener() {
-            @Override
-            public void mouseWheelMoved(MouseWheelEvent e) {
-                if(editmode==EditMode.HAND) {
-                    if (e.getPreciseWheelRotation() < 0) {
-                        scale *= 1.2; // zoom in
-                    } else {
-                        scale *= 0.8; // zoom out
-                    }
-                    repaint();
-                }
-            }
-        });
-
-        addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                if(SwingUtilities.isLeftMouseButton(e)) {
-                    lastX = e.getX();
-                    lastY = e.getY();
-                    isDragging = true;
-                }
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                if(SwingUtilities.isLeftMouseButton(e)) {
-                    if(editmode==EditMode.HAND) {
-                        isDragging = false;
-                    } else if(editmode==EditMode.CIRCLE) {
-                        Circle circle = new Circle(new Coordinate(e.getX()-20,e.getY()-20),new Radius(20));
-                        if(drawableMap.containsKey(CircleDrawer.getName())) {
-                            CircleDrawer circleDrawer = (CircleDrawer) drawableMap.get(CircleDrawer.getName());
-                            circleDrawer.setCircle(circle);
-                        } else {
-                            CircleDrawer circleDrawer = new CircleDrawer(circle, gridSize);
-                            drawableMap.put(CircleDrawer.getName(), circleDrawer);
-                        }
-                        repaint();
-                    }
-                }
-
-                if (SwingUtilities.isRightMouseButton(e)) {
-                    spawnContextMenu(e);
-                }
-            }
-        });
-
-        addMouseMotionListener(new MouseMotionAdapter() {
-            @Override
-            public void mouseDragged(MouseEvent e) {
-                if(SwingUtilities.isLeftMouseButton(e) && editmode==EditMode.HAND) {
-                    if (isDragging) {
-                        int deltaX = e.getX() - (int) lastX;
-                        int deltaY = e.getY() - (int) lastY;
-                        offsetX += deltaX;
-                        offsetY += deltaY;
-                        lastX = e.getX();
-                        lastY = e.getY();
-                        repaint();
-                    }
-                }
-            }
-        });
+        mouseHandler = new MouseHandler(this);
+        addMouseWheelListener(mouseHandler);
+        addMouseListener(mouseHandler);
+        addMouseMotionListener(mouseHandler);
     }
 
     @Override
@@ -107,36 +53,57 @@ public class GridPanel extends JPanel {
         // Apply scaling and panning
         g2d.scale(scale, scale);
 
-        drawableMap.forEach((key, value) -> value.draw(g2d, new Size(getWidth(), getHeight()),
-                new Coordinate(offsetX, offsetY), new Coordinate(lastX/scale, lastY/scale)));
+        Size size = new Size(getWidth(), getHeight());
+        Coordinate offset = new Coordinate(offsetX, offsetY);
+
+        gridDrawer.draw(g2d, size, offset, java.util.List.of());
+        circleDrawer.draw(g2d, size, offset, circles);
+
+        toBeInstantiated.entrySet().stream().filter(e -> e.getValue() != null).forEach(e -> e.getValue().forEach(v ->
+            e.getKey().instantiate(g2d, size, offset, mouseHandler.getLastMousePosition(), v)
+        ));
+        if(toBeInstantiated.get(circleDrawer) != null) {
+            toBeInstantiated.get(circleDrawer).forEach(c -> circles.add((Circle) c));
+            toBeInstantiated.put(circleDrawer, null);
+        }
     }
 
-    private void spawnContextMenu(MouseEvent e) {
-        System.out.println("Right click!");
-
+    public void spawnContextMenu(MouseEvent e) {
         JPopupMenu pm = new JPopupMenu("Message");
-        // create menuItems
         JMenuItem m1 = new JMenuItem("Hand");
         JMenuItem m2 = new JMenuItem("Circle");
         pm.add(m1);
         pm.add(m2);
 
-        m1.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e)
-            {
-                System.out.println("Hand");
-                editmode=EditMode.HAND;
-            }
-        });
-        m2.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e)
-            {
-                System.out.println("Circle");
-                editmode=EditMode.CIRCLE;
-            }
-        });
+        m1.addActionListener(_ -> editMode = EditMode.HAND);
+        m2.addActionListener(_ -> editMode = EditMode.CIRCLE);
 
-        pm.show(this,e.getX(),e.getY());
+        pm.show(this, e.getX(), e.getY());
+    }
+    public void zoomIn() {
+        scale *= 1.2;
+    }
 
+    public void zoomOut() {
+        scale *= 0.8;
+    }
+
+    public void pan(int deltaX, int deltaY) {
+        offsetX += deltaX;
+        offsetY += deltaY;
+    }
+
+    public EditMode getEditMode() {
+        return this.editMode;
+    }
+
+    public void addCircle(Coordinate coordinate, Radius radius) {
+        Circle circle = new Circle(coordinate, radius);
+        if(toBeInstantiated.get(circleDrawer) == null) {
+            toBeInstantiated.put(circleDrawer, java.util.List.of(circle));
+        } else {
+            toBeInstantiated.get(circleDrawer).add(circle);
+        }
+        repaint();
     }
 }

@@ -36,4 +36,11 @@ public class Coordinate
     {
         return this._y;
     }
+
+    public Coordinate add(Coordinate coordinate) {
+        return new Coordinate(this._x + coordinate._x, this._y + coordinate._y);
+    }
+    public Coordinate subtract(Coordinate coordinate) {
+        return new Coordinate(this._x - coordinate._x, this._y - coordinate._y);
+    }
 }
