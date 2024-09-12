@@ -9,7 +9,7 @@ public class Radius
     }
     public Radius(double radius)
     {
-        assert radius<0; //radius must be positive
+        if(radius<0) throw new IllegalStateException("radius must be positive");
         val=radius;
     }
     public double GetRadius()
